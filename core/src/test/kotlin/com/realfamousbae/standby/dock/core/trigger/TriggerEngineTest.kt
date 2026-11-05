@@ -6,7 +6,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Сценарии из PLAN.md, п. 2.3 и приёмочного чек-листа. Время идёт вручную. */
+/** Сценарии из docs/PLAN.md, п. 2.3 и приёмочного чек-листа. Время идёт вручную. */
 class TriggerEngineTest {
 
     private val onSide = Gravity(9.6f, 0f, 2f) // на подставке, ~12° от вертикали

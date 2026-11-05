@@ -13,7 +13,7 @@ import java.util.concurrent.TimeUnit
  * гарантирован). Режим работает и без зарядки, поэтому задача периодическая без условий:
  * раз в ~15 минут (система может сдвигать) поднимает службу. Если служба жива, повторный
  * запуск безвреден. Старт FGS из фона разрешён благодаря исключению из оптимизации батареи
- * (проверено в spike, PLAN.md, этап 1).
+ * (проверено в spike, docs/PLAN.md, этап 1).
  */
 class KeepAliveWorker(context: Context, params: WorkerParameters) :
     CoroutineWorker(context, params) {

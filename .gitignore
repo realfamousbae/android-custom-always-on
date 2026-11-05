@@ -17,3 +17,6 @@ signing.properties
 
 # macOS
 .DS_Store
+
+# Инструкции для ИИ-ассистента — локально, не в репозитории
+CLAUDE.md

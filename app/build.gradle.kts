@@ -37,7 +37,7 @@ android {
         // targetSdk = версия ОС на S24 Ultra (Android 17), чтобы тестировать реальное поведение.
         targetSdk = 37
         versionCode = ciVersionCode ?: 1
-        versionName = ciVersionName ?: "0.2.0-local"
+        versionName = ciVersionName ?: "0.0.0-local"
     }
 
     signingConfigs {

@@ -42,7 +42,7 @@ object SystemChecks {
 
     /**
      * Системный диалог «Разрешить работу в фоне без ограничений?». Для Google Play такое
-     * запрещено, но приложение ставится только вручную (см. PLAN.md).
+     * запрещено, но приложение ставится только вручную (см. docs/PLAN.md).
      */
     @android.annotation.SuppressLint("BatteryLife")
     fun requestIgnoreBatteryOptimizations(context: Context) =
