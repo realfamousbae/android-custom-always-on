@@ -31,8 +31,11 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v6
 
+      # С API 37 пакет платформы называется с минорной версией: android-37.0.
       - name: Android SDK platform 37
-        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37" > /dev/null
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0"
 
       # Ключ подписи из Secrets. В PR из форков секретов нет — release будет неподписанным.
       - name: Decode signing key
