@@ -22,6 +22,11 @@ data class StandbySettings(
     val notificationBannersEnabled: Boolean = true,
     /** Приложения, от которых баннеры не показываются (по умолчанию — все разрешены). */
     val notificationBlockedPackages: Set<String> = emptySet(),
+    /**
+     * Пока режим показан, скрывать системные всплывающие уведомления (через собственный
+     * режим «Не беспокоить»: звонки и будильники разрешены, остальное — без звука).
+     */
+    val hideSystemHeadsUp: Boolean = true,
 ) {
     companion object {
         const val TILT_RANGE_MIN = 15f

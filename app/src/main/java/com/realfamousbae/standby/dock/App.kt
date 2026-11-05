@@ -5,6 +5,7 @@ import android.content.Context
 import com.realfamousbae.standby.dock.core.prefs.StandbySettings
 import com.realfamousbae.standby.dock.diag.DiagLog
 import com.realfamousbae.standby.dock.notifications.NotificationBus
+import com.realfamousbae.standby.dock.notifications.QuietMode
 import com.realfamousbae.standby.dock.prefs.SettingsRepository
 import com.realfamousbae.standby.dock.service.KeepAliveWorker
 import com.realfamousbae.standby.dock.service.Notifications
@@ -45,6 +46,7 @@ class AppGraph(app: Application) {
     val controller = StandbyController()
     val widgetHost = StandbyWidgetHost(app)
     val notificationBus = NotificationBus()
+    val quietMode = QuietMode(app, diagLog)
 
     /** Последние настройки, всегда доступные синхронно (до первой загрузки — по умолчанию). */
     val settings: StateFlow<StandbySettings> =

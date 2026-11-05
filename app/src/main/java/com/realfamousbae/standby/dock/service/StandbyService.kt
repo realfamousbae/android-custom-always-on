@@ -26,6 +26,8 @@ import com.realfamousbae.standby.dock.standby.StandbyActivity
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.util.Locale
@@ -100,6 +102,16 @@ class StandbyService : LifecycleService() {
                 )
             }
         }
+        // Системные всплывашки прячем, только пока режим на экране и вместо них есть наши
+        // баннеры. Первое значение (false)
+        // заодно выключает правило, оставшееся от прошлого процесса.
+        lifecycleScope.launch {
+            combine(graph.controller.visible, graph.settings) { visible, s ->
+                visible && s.hideSystemHeadsUp && s.notificationBannersEnabled
+            }
+                .distinctUntilChanged()
+                .collect(graph.quietMode::setActive)
+        }
         lifecycleScope.launch {
             motionWakeSensor.events().collect { events.send(TriggerEvent.MotionWake) }
         }
@@ -128,6 +140,7 @@ class StandbyService : LifecycleService() {
         unregisterReceiver(systemEvents)
         releaseWakeLock()
         graph.controller.setVisible(false)
+        graph.quietMode.setActive(false)
         log.log("Служба остановлена")
         super.onDestroy()
     }

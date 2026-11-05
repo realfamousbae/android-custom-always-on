@@ -59,6 +59,8 @@ class StandbyNotificationListener : NotificationListenerService() {
             isGroupSummary = n.flags and Notification.FLAG_GROUP_SUMMARY != 0,
             importance = ranking?.importance ?: NotificationFilter.IMPORTANCE_DEFAULT,
             matchesInterruptionFilter = ranking?.matchesInterruptionFilter() ?: true,
+            ownQuietModeActive = graph.quietMode.active,
+            userDndActive = graph.quietMode.userDndActive,
         )
         if (!NotificationFilter.shouldShow(info, graph.settings.value)) return
 

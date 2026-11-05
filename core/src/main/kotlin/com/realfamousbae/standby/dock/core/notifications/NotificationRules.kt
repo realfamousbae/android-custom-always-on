@@ -16,6 +16,13 @@ data class NotificationInfo(
     val importance: Int,
     /** false — уведомление скрыто режимом «Не беспокоить». */
     val matchesInterruptionFilter: Boolean,
+    /**
+     * Активен наш собственный режим тишины (скрывает системные всплывающие уведомления).
+     * Он перехватывает почти всё, поэтому сам по себе не должен гасить наши баннеры.
+     */
+    val ownQuietModeActive: Boolean = false,
+    /** «Не беспокоить» был включён пользователем ещё до нашего режима. */
+    val userDndActive: Boolean = false,
 )
 
 object NotificationFilter {
@@ -29,7 +36,8 @@ object NotificationFilter {
         info.isOngoing -> false
         info.isGroupSummary -> false
         info.importance < IMPORTANCE_DEFAULT -> false
-        !info.matchesInterruptionFilter -> false
+        // Перехват засчитываем, только если его мог сделать пользовательский DND.
+        !info.matchesInterruptionFilter && (!info.ownQuietModeActive || info.userDndActive) -> false
         info.packageName in settings.notificationBlockedPackages -> false
         else -> true
     }

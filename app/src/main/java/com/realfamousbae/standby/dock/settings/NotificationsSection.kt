@@ -86,6 +86,24 @@ fun NotificationsSection() {
             modifier = Modifier.fillMaxWidth(),
         ) { Text("Карточка приложения") }
     }
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text("Скрывать системные всплывающие уведомления", modifier = Modifier.weight(1f).padding(top = 12.dp))
+        Switch(
+            checked = settings.hideSystemHeadsUp,
+            onCheckedChange = { scope.launch { graph.settingsRepository.setHideSystemHeadsUp(it) } },
+        )
+    }
+    if (settings.hideSystemHeadsUp) {
+        Text(
+            "Пока режим на экране, включается режим «StandBy» из «Не беспокоить»: уведомления " +
+                "приходят без звука и показываются только нашими баннерами. Звонки и будильники — " +
+                "как обычно.",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        StatusRow("Доступ к «Не беспокоить»", graph.quietMode.hasAccess()) {
+            context.startActivity(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
+        }
+    }
     Text(
         "Беззвучные и постоянные уведомления не показываются. Текст скрывается, если так " +
             "настроено для экрана блокировки.",

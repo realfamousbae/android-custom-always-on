@@ -38,6 +38,7 @@ class SettingsRepository(context: Context) {
                 widgetId = p[WIDGET_ID],
                 notificationBannersEnabled = p[BANNERS_ENABLED] ?: defaults.notificationBannersEnabled,
                 notificationBlockedPackages = p[BLOCKED_PACKAGES] ?: defaults.notificationBlockedPackages,
+                hideSystemHeadsUp = p[HIDE_SYSTEM_HEADS_UP] ?: defaults.hideSystemHeadsUp,
             )
         }
         .distinctUntilChanged()
@@ -47,6 +48,7 @@ class SettingsRepository(context: Context) {
     suspend fun setMinBattery(value: Int) = set(MIN_BATTERY, value)
     suspend fun setLayout(value: ScreenLayout) = set(LAYOUT, value.name)
     suspend fun setBannersEnabled(value: Boolean) = set(BANNERS_ENABLED, value)
+    suspend fun setHideSystemHeadsUp(value: Boolean) = set(HIDE_SYSTEM_HEADS_UP, value)
 
     suspend fun setWidgetId(value: Int?) {
         store.edit { if (value == null) it.remove(WIDGET_ID) else it[WIDGET_ID] = value }
@@ -74,5 +76,6 @@ class SettingsRepository(context: Context) {
         val WIDGET_ID = intPreferencesKey("widget_id")
         val BANNERS_ENABLED = booleanPreferencesKey("notification_banners_enabled")
         val BLOCKED_PACKAGES = stringSetPreferencesKey("notification_blocked_packages")
+        val HIDE_SYSTEM_HEADS_UP = booleanPreferencesKey("hide_system_heads_up")
     }
 }

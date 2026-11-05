@@ -38,6 +38,21 @@ class NotificationRulesTest {
     }
 
     @Test
+    fun `наш режим тишины не гасит баннеры, пользовательский DND — гасит`() {
+        val intercepted = message.copy(matchesInterruptionFilter = false)
+        // Перехватил только наш режим — баннер показываем.
+        assertTrue(NotificationFilter.shouldShow(intercepted.copy(ownQuietModeActive = true), settings))
+        // DND пользователя был включён и до нас — уважаем его.
+        assertFalse(
+            NotificationFilter.shouldShow(intercepted.copy(ownQuietModeActive = true, userDndActive = true), settings),
+        )
+        // Нашего режима нет — перехват значит пользовательский DND.
+        assertFalse(NotificationFilter.shouldShow(intercepted.copy(userDndActive = true), settings))
+        // Прошедшее фильтр DND показывается в любом случае.
+        assertTrue(NotificationFilter.shouldShow(message.copy(ownQuietModeActive = true, userDndActive = true), settings))
+    }
+
+    @Test
     fun `чёрный список и выключатель баннеров`() {
         val blocked = settings.copy(notificationBlockedPackages = setOf("app.messenger"))
         assertFalse(NotificationFilter.shouldShow(message, blocked))

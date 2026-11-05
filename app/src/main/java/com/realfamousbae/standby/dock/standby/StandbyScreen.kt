@@ -18,9 +18,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -31,6 +38,9 @@ import com.realfamousbae.standby.dock.widgets.StandbyWidgetHost
 import kotlinx.coroutines.flow.Flow
 
 private val CardShape = RoundedCornerShape(36.dp)
+
+/** Ширина плавного затухания виджета у краёв карточки. */
+private val WidgetFadeWidth = 24.dp
 
 /**
  * Экран режима: часы на весь экран или две равные карточки «часы | системный виджет»,
@@ -98,9 +108,33 @@ private fun WidgetView(widgetHost: StandbyWidgetHost, widgetId: Int) {
         modifier = Modifier
             .fillMaxSize()
             .padding(12.dp)
+            .fadeEdges(WidgetFadeWidth)
             .onSizeChanged { size ->
                 val view = hostView ?: return@onSizeChanged
                 with(density) { widgetHost.updateSize(view, size.width.toDp().value, size.height.toDp().value) }
             },
     )
 }
+
+/**
+ * Плавно растворяет содержимое у всех четырёх краёв: собственный фон виджета не обрывается
+ * прямоугольником, а уходит в цвет карточки. Рисуем в отдельный слой и умножаем его альфу
+ * на горизонтальную и вертикальную маски (DstIn).
+ */
+private fun Modifier.fadeEdges(width: Dp): Modifier =
+    graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+        .drawWithContent {
+            drawContent()
+            val fade = width.toPx()
+            if (size.width <= 2 * fade || size.height <= 2 * fade) return@drawWithContent
+            val fx = fade / size.width
+            val fy = fade / size.height
+            drawRect(
+                Brush.horizontalGradient(0f to Color.Transparent, fx to Color.Black, 1f - fx to Color.Black, 1f to Color.Transparent),
+                blendMode = BlendMode.DstIn,
+            )
+            drawRect(
+                Brush.verticalGradient(0f to Color.Transparent, fy to Color.Black, 1f - fy to Color.Black, 1f to Color.Transparent),
+                blendMode = BlendMode.DstIn,
+            )
+        }
