@@ -1,0 +1,19 @@
+# Gradle / Android Studio
+.gradle/
+build/
+/captures
+.externalNativeBuild/
+.cxx/
+*.iml
+.idea/
+.kotlin/
+
+# Локальное, не для репозитория: путь к SDK, ключи подписи, личные данные
+local.properties
+*.jks
+*.keystore
+keystore.properties
+signing.properties
+
+# macOS
+.DS_Store
