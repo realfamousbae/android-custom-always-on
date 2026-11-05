@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Только debug-сборка: команды для тестов через adb. В release этого receiver'а нет. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- Право DUMP есть у adb shell и системы, обычным приложениям его не выдают. -->
+        <receiver
+            android:name=".debug.DebugCommandReceiver"
+            android:exported="true"
+            android:permission="android.permission.DUMP">
+            <intent-filter>
+                <action android:name="com.realfamousbae.standby.dock.debug.STOP_SERVICE" />
+                <action android:name="com.realfamousbae.standby.dock.debug.RUN_KEEP_ALIVE" />
+                <action android:name="com.realfamousbae.standby.dock.debug.SHOW_STANDBY" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

@@ -12,8 +12,8 @@ android {
     defaultConfig {
         applicationId = "com.realfamousbae.standby.dock"
         minSdk = 31
-        // targetSdk = версия ОС на S24 Ultra (Android 16), чтобы тестировать реальное поведение.
-        targetSdk = 36
+        // targetSdk = версия ОС на S24 Ultra (Android 17), чтобы тестировать реальное поведение.
+        targetSdk = 37
         versionCode = 1
         versionName = "0.1.0"
     }

@@ -1,6 +1,7 @@
 package com.realfamousbae.standby.dock.settings
 
 import android.Manifest
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -122,6 +123,16 @@ private fun DiagnosticsScreen() {
             },
             modifier = Modifier.fillMaxWidth(),
         ) { Text("Показать режим через 10 с (заблокируйте экран)") }
+        OutlinedButton(
+            onClick = {
+                // Явная остановка: START_STICKY не сработает, поднять службу сможет только
+                // KeepAliveWorker или BootReceiver (spike, п. 7).
+                context.stopService(Intent(context, StandbyService::class.java))
+                context.graph.diagLog.log("Тест: служба остановлена вручную")
+                refresh++
+            },
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text("Остановить службу (тест подъёма)") }
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Журнал", style = MaterialTheme.typography.titleMedium)
