@@ -1,6 +1,7 @@
 package com.realfamousbae.standby.dock.notifications
 
 import android.app.Notification
+import android.app.NotificationManager
 import android.content.ComponentName
 import android.content.Context
 import android.provider.Settings
@@ -62,6 +63,15 @@ class StandbyNotificationListener : NotificationListenerService() {
             ownQuietModeActive = graph.quietMode.active,
             userDndActive = graph.quietMode.userDndActive,
         )
+        // Диагностика скрытия системных всплывашек: перехватил ли DND и снят ли peek.
+        // Без текста и имени приложения.
+        if (ranking != null) {
+            val peekHidden = ranking.suppressedVisualEffects and NotificationManager.Policy.SUPPRESSED_EFFECT_PEEK != 0
+            graph.diagLog.log(
+                "Уведомления: dnd=${if (ranking.matchesInterruptionFilter()) "пропустил" else "перехватил"}, " +
+                    "всплывашка=${if (peekHidden) "скрыта" else "разрешена"}",
+            )
+        }
         if (!NotificationFilter.shouldShow(info, graph.settings.value)) return
 
         val content = LockscreenPrivacy.decide(

@@ -8,6 +8,7 @@ import android.net.Uri
 import android.os.Build
 import android.service.notification.Condition
 import android.service.notification.ZenPolicy
+import androidx.core.content.edit
 import com.realfamousbae.standby.dock.diag.DiagLog
 import com.realfamousbae.standby.dock.settings.SettingsActivity
 
@@ -26,6 +27,7 @@ import com.realfamousbae.standby.dock.settings.SettingsActivity
 class QuietMode(context: Context, private val log: DiagLog) {
 
     private val appContext = context.applicationContext
+    private val prefs = appContext.getSharedPreferences("quiet_mode", Context.MODE_PRIVATE)
     private val manager = appContext.getSystemService(NotificationManager::class.java)
     private val conditionId: Uri = Uri.Builder()
         .scheme(Condition.SCHEME)
@@ -60,11 +62,13 @@ class QuietMode(context: Context, private val log: DiagLog) {
                 val id = findRuleId() ?: manager.addAutomaticZenRule(newRule())
                 manager.setAutomaticZenRuleState(id, condition(Condition.STATE_TRUE))
                 active = true
-                log.log("Тихий режим: включён")
+                suppressPeekGlobally()
+                log.log("Тихий режим: включён (${stateSummary(id)})")
             } else {
                 active = false
                 userDndActive = false
                 if (!hasAccess()) return
+                restoreGlobalPeek()
                 val id = findRuleId() ?: return
                 manager.setAutomaticZenRuleState(id, condition(Condition.STATE_FALSE))
                 log.log("Тихий режим: выключен")
@@ -72,6 +76,50 @@ class QuietMode(context: Context, private val log: DiagLog) {
         }.onFailure {
             log.log("Тихий режим: ошибка (${it.javaClass.simpleName})")
         }
+    }
+
+    /**
+     * One UI со старым интерфейсом «Не беспокоить» берёт визуальные эффекты из общей
+     * политики («Скрытие уведомлений»), а не из `ZenPolicy` правила. Поэтому на время режима
+     * добавляем в общую политику только «скрывать всплывающие» и запоминаем это на диске,
+     * чтобы вернуть даже после смерти процесса.
+     */
+    private fun suppressPeekGlobally() {
+        val policy = manager.notificationPolicy
+        if (policy.suppressedVisualEffects and PEEK != 0) return
+        manager.notificationPolicy = policy.withVisualEffects(policy.suppressedVisualEffects or PEEK)
+        prefs.edit(commit = true) { putBoolean(KEY_PEEK_ADDED, true) }
+    }
+
+    /** Снять «скрывать всплывающие», только если его добавили мы; остальное не трогаем. */
+    private fun restoreGlobalPeek() {
+        if (!prefs.getBoolean(KEY_PEEK_ADDED, false)) return
+        val policy = manager.notificationPolicy
+        if (policy.suppressedVisualEffects and PEEK != 0) {
+            manager.notificationPolicy = policy.withVisualEffects(policy.suppressedVisualEffects and PEEK.inv())
+        }
+        prefs.edit(commit = true) { putBoolean(KEY_PEEK_ADDED, false) }
+        log.log("Тихий режим: общая настройка всплывающих возвращена")
+    }
+
+    private fun NotificationManager.Policy.withVisualEffects(effects: Int) = NotificationManager.Policy(
+        priorityCategories,
+        priorityCallSenders,
+        priorityMessageSenders,
+        effects,
+        priorityConversationSenders,
+    )
+
+    /** Для журнала: что система считает включённым после нашего вызова. */
+    private fun stateSummary(id: String): String {
+        val filter = manager.currentInterruptionFilter
+        val ruleState = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+            ", правило=${manager.getAutomaticZenRuleState(id)}"
+        } else {
+            ""
+        }
+        val peek = manager.notificationPolicy.suppressedVisualEffects and PEEK != 0
+        return "фильтр=$filter$ruleState, общая peek=${if (peek) "скрыта" else "видна"}"
     }
 
     private fun findRuleId(): String? =
@@ -115,5 +163,7 @@ class QuietMode(context: Context, private val log: DiagLog) {
 
     private companion object {
         const val RULE_NAME = "StandBy"
+        const val PEEK = NotificationManager.Policy.SUPPRESSED_EFFECT_PEEK
+        const val KEY_PEEK_ADDED = "global_peek_added"
     }
 }

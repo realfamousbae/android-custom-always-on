@@ -18,12 +18,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
+import android.graphics.LinearGradient
+import android.graphics.Paint
+import android.graphics.Shader
+import com.realfamousbae.standby.dock.core.ui.EdgeFade
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -40,7 +43,7 @@ import kotlinx.coroutines.flow.Flow
 private val CardShape = RoundedCornerShape(36.dp)
 
 /** Ширина плавного затухания виджета у краёв карточки. */
-private val WidgetFadeWidth = 24.dp
+private val WidgetFadeWidth = 40.dp
 
 /**
  * Экран режима: часы на весь экран или две равные карточки «часы | системный виджет»,
@@ -108,7 +111,7 @@ private fun WidgetView(widgetHost: StandbyWidgetHost, widgetId: Int) {
         modifier = Modifier
             .fillMaxSize()
             .padding(12.dp)
-            .fadeEdges(WidgetFadeWidth)
+            .fadeEdges(WidgetFadeWidth, StandbyColors.card)
             .onSizeChanged { size ->
                 val view = hostView ?: return@onSizeChanged
                 with(density) { widgetHost.updateSize(view, size.width.toDp().value, size.height.toDp().value) }
@@ -117,24 +120,36 @@ private fun WidgetView(widgetHost: StandbyWidgetHost, widgetId: Int) {
 }
 
 /**
- * Плавно растворяет содержимое у всех четырёх краёв: собственный фон виджета не обрывается
- * прямоугольником, а уходит в цвет карточки. Рисуем в отдельный слой и умножаем его альфу
- * на горизонтальную и вертикальную маски (DstIn).
+ * Плавно растворяет край виджета в карточке: поверх виджета у каждого края рисуется «вуаль»
+ * цвета карточки с гауссовым профилем прозрачности ([EdgeFade]). Фон карточки сплошной,
+ * поэтому это то же, что маска прозрачности, но с дизерингом: между фоном виджета и
+ * карточки всего несколько уровней яркости, и без дизеринга переход виден ступеньками.
  */
-private fun Modifier.fadeEdges(width: Dp): Modifier =
-    graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
-        .drawWithContent {
-            drawContent()
-            val fade = width.toPx()
-            if (size.width <= 2 * fade || size.height <= 2 * fade) return@drawWithContent
-            val fx = fade / size.width
-            val fy = fade / size.height
-            drawRect(
-                Brush.horizontalGradient(0f to Color.Transparent, fx to Color.Black, 1f - fx to Color.Black, 1f to Color.Transparent),
-                blendMode = BlendMode.DstIn,
-            )
-            drawRect(
-                Brush.verticalGradient(0f to Color.Transparent, fy to Color.Black, 1f - fy to Color.Black, 1f to Color.Transparent),
-                blendMode = BlendMode.DstIn,
-            )
+private fun Modifier.fadeEdges(width: Dp, color: Color): Modifier = drawWithCache {
+    val fade = minOf(width.toPx(), size.minDimension / 2)
+    val stops = EdgeFade.stops()
+    val positions = stops.map { it.first }.toFloatArray()
+    val colors = stops.map { color.copy(alpha = it.second).toArgb() }.toIntArray()
+    fun paint(x0: Float, y0: Float, x1: Float, y1: Float) = Paint().apply {
+        isDither = true
+        isAntiAlias = false
+        shader = LinearGradient(x0, y0, x1, y1, colors, positions, Shader.TileMode.CLAMP)
+    }
+    val w = size.width
+    val h = size.height
+    val left = paint(0f, 0f, fade, 0f)
+    val right = paint(w, 0f, w - fade, 0f)
+    val top = paint(0f, 0f, 0f, fade)
+    val bottom = paint(0f, h, 0f, h - fade)
+    onDrawWithContent {
+        drawContent()
+        if (fade <= 0f) return@onDrawWithContent
+        drawIntoCanvas { canvas ->
+            val c = canvas.nativeCanvas
+            c.drawRect(0f, 0f, fade, h, left)
+            c.drawRect(w - fade, 0f, w, h, right)
+            c.drawRect(0f, 0f, w, fade, top)
+            c.drawRect(0f, h - fade, w, h, bottom)
         }
+    }
+}
