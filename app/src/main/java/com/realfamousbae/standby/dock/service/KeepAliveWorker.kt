@@ -1,7 +1,6 @@
 package com.realfamousbae.standby.dock.service
 
 import android.content.Context
-import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
@@ -10,10 +9,11 @@ import androidx.work.WorkerParameters
 import java.util.concurrent.TimeUnit
 
 /**
- * Страховка на случай, если Samsung убил службу. ACTION_POWER_CONNECTED нельзя ловить
- * receiver'ом из манифеста, поэтому используем периодическую задачу с условием «на зарядке»:
- * пока телефон не заряжается, просроченная задача ждёт, а при подключении зарядки система
- * запускает её вскоре после выполнения условия. Если служба жива, повторный запуск безвреден.
+ * Страховка на случай, если система убила службу и не перезапустила её (START_STICKY не
+ * гарантирован). Режим работает и без зарядки, поэтому задача периодическая без условий:
+ * раз в ~15 минут (система может сдвигать) поднимает службу. Если служба жива, повторный
+ * запуск безвреден. Старт FGS из фона разрешён благодаря исключению из оптимизации батареи
+ * (проверено в spike, PLAN.md, этап 1).
  */
 class KeepAliveWorker(context: Context, params: WorkerParameters) :
     CoroutineWorker(context, params) {
@@ -27,11 +27,10 @@ class KeepAliveWorker(context: Context, params: WorkerParameters) :
         private const val UNIQUE_NAME = "standby_keep_alive"
 
         fun schedule(context: Context) {
-            val request = PeriodicWorkRequestBuilder<KeepAliveWorker>(15, TimeUnit.MINUTES)
-                .setConstraints(Constraints.Builder().setRequiresCharging(true).build())
-                .build()
+            val request = PeriodicWorkRequestBuilder<KeepAliveWorker>(15, TimeUnit.MINUTES).build()
+            // UPDATE: заменяет задачу из прошлых версий (с условием «на зарядке»).
             WorkManager.getInstance(context)
-                .enqueueUniquePeriodicWork(UNIQUE_NAME, ExistingPeriodicWorkPolicy.KEEP, request)
+                .enqueueUniquePeriodicWork(UNIQUE_NAME, ExistingPeriodicWorkPolicy.UPDATE, request)
         }
     }
 }

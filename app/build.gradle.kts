@@ -1,9 +1,31 @@
+import java.util.Properties
+
 // AGP 9: Kotlin встроен в Android-плагин, отдельный org.jetbrains.kotlin.android не нужен.
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
 }
+
+/**
+ * Подпись release: в CI — из переменных окружения (GitHub Secrets), локально — из
+ * keystore.properties в корне (в .gitignore). Нет ни того, ни другого — release
+ * собирается неподписанным. Ключ и пароли в репозиторий не попадают никогда.
+ */
+val keystoreProperties = Properties().apply {
+    val file = rootProject.file("keystore.properties")
+    if (file.exists()) file.inputStream().use(::load)
+}
+
+fun signingValue(envName: String, propertyName: String): String? =
+    providers.environmentVariable(envName).orNull?.takeIf { it.isNotBlank() }
+        ?: keystoreProperties.getProperty(propertyName)
+
+val releaseStoreFile = signingValue("STANDBY_KEYSTORE_FILE", "storeFile")
+
+// versionCode растёт с номером запуска CI, чтобы новая сборка ставилась поверх старой.
+val ciVersionCode = providers.environmentVariable("GITHUB_RUN_NUMBER").orNull?.toIntOrNull()
+val ciVersionName = providers.environmentVariable("STANDBY_VERSION_NAME").orNull?.removePrefix("v")
 
 android {
     namespace = "com.realfamousbae.standby.dock"
@@ -14,13 +36,25 @@ android {
         minSdk = 31
         // targetSdk = версия ОС на S24 Ultra (Android 17), чтобы тестировать реальное поведение.
         targetSdk = 37
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = ciVersionCode ?: 1
+        versionName = ciVersionName ?: "0.2.0-local"
+    }
+
+    signingConfigs {
+        if (releaseStoreFile != null) {
+            create("release") {
+                storeFile = file(releaseStoreFile)
+                storePassword = signingValue("STANDBY_KEYSTORE_PASSWORD", "storePassword")
+                keyAlias = signingValue("STANDBY_KEY_ALIAS", "keyAlias")
+                keyPassword = signingValue("STANDBY_KEY_PASSWORD", "keyPassword")
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.findByName("release")
         }
     }
 

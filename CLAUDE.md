@@ -21,7 +21,11 @@
 ## Сборка
 - JDK 21 (Homebrew `openjdk@21`): `export JAVA_HOME=/opt/homebrew/opt/openjdk@21`.
 - `./gradlew :core:test :app:assembleDebug :app:lintDebug` — должно быть зелёным перед коммитом.
-- Установка на телефон: `./gradlew :app:installDebug` (adb: `~/Library/Android/sdk/platform-tools/adb`).
+- Доставка на телефон — только через GitHub Actions: push в `main` собирает и проверяет,
+  тег `v*` публикует подписанный APK в Releases (`.github/workflows/android.yml`). Проверки
+  через adb недоступны: поведение доказывается unit-тестами в `:core`, на устройстве —
+  журналом экрана диагностики.
+- Репозиторий публичный: `realfamousbae/android-custom-always-on` (MIT).
 - Версии зависимостей — только в `gradle/libs.versions.toml`.
 
 ## Приватность (обязательно)
