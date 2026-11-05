@@ -13,11 +13,13 @@ import com.realfamousbae.standby.dock.core.prefs.StandbySettings
  * - После фронта — фаза Armed: слушаем акселерометр; на зарядке без ограничения по
  *   времени, без зарядки — окно пробы [PROBE_WINDOW_MS], чтобы не держать датчик и
  *   wake lock всю ночь.
- * - Показ: на боку непрерывно [ENTER_STABLE_MS] + допустимое питание + не suppressed.
+ * - Показ: на боку непрерывно [ENTER_STABLE_MS] + допустимое питание + нет запрета.
  * - Скрытие: сняли с бока ([EXIT_STABLE_MS] за порогом + [EXIT_HYSTERESIS_DEGREES]),
  *   заряд упал ниже порога без зарядки, разблокировали телефон, закрыли жестом.
- * - После закрытия пользователем — suppressed, пока телефон не сняли с бока, не изменилось
- *   состояние зарядки или его не разблокировали.
+ * - Погасили режим кнопкой питания — запрет до следующего включения экрана: пока он
+ *   действует, ожидание не взводится (ни датчика, ни wake lock). Включили экран и оставили
+ *   телефон — после погасания режим вернётся. Закрыли тапом — без запрета: экран горит,
+ *   а после его погасания режим возвращается.
  */
 object TriggerEngine {
 
@@ -43,20 +45,22 @@ object TriggerEngine {
                 s = if (s.phase == Phase.Showing) {
                     // Экран режима погасили кнопкой питания — это явное «выключи».
                     hide(s, effects, "погасили кнопкой питания", suppress = true)
+                } else if (s.suppressedUntilScreenOn) {
+                    s
                 } else {
                     arm(s, nowMs, effects)
                 }
             }
 
             TriggerEvent.ScreenOn -> {
-                s = s.copy(screenInteractive = true)
+                s = s.copy(screenInteractive = true, suppressedUntilScreenOn = false)
                 // Экран включил пользователь — перестаём ждать. Если экран включили мы
                 // сами (turnScreenOn при показе), фаза уже Showing и ничего не меняется.
                 if (s.phase == Phase.Armed) s = s.copy(phase = Phase.Idle, armedUntilMs = null)
             }
 
             TriggerEvent.UserPresent -> {
-                s = s.copy(screenInteractive = true, suppressed = false)
+                s = s.copy(screenInteractive = true, suppressedUntilScreenOn = false)
                 s = when (s.phase) {
                     Phase.Showing -> hide(s, effects, "телефон разблокирован", suppress = false)
                     Phase.Armed -> s.copy(phase = Phase.Idle, armedUntilMs = null)
@@ -68,7 +72,7 @@ object TriggerEngine {
                 val plugged = event.charging && !s.charging
                 val chargingChanged = event.charging != s.charging
                 s = s.copy(charging = event.charging, batteryPercent = event.batteryPercent)
-                if (chargingChanged) s = s.copy(suppressed = false)
+                if (chargingChanged) s = s.copy(suppressedUntilScreenOn = false)
                 if (chargingChanged && s.phase == Phase.Armed) {
                     // На зарядке ждём без ограничения, без неё — заново открываем окно пробы.
                     s = s.copy(armedUntilMs = if (s.charging) null else nowMs + PROBE_WINDOW_MS)
@@ -84,19 +88,23 @@ object TriggerEngine {
             }
 
             TriggerEvent.MotionWake -> {
-                if (!s.screenInteractive && s.phase != Phase.Showing) s = arm(s, nowMs, effects)
+                if (!s.screenInteractive && s.phase != Phase.Showing && !s.suppressedUntilScreenOn) {
+                    s = arm(s, nowMs, effects)
+                }
             }
 
             TriggerEvent.Tick -> Unit
 
-            TriggerEvent.UserExit -> {
+            is TriggerEvent.UserExit -> {
                 if (s.phase == Phase.Showing) {
-                    s = hide(s, effects, "закрыт пользователем", suppress = true, notify = false)
+                    // Activity ушла при уже погашенном экране — это кнопка питания, просто
+                    // SCREEN_OFF ещё не дошёл. Иначе — тап: запрет не нужен, экран и так горит.
+                    s = hide(s, effects, "закрыт пользователем", suppress = !event.screenOn, notify = false)
                 }
             }
 
             TriggerEvent.ManualShow -> {
-                s = s.copy(phase = Phase.Showing, manual = true, suppressed = false, armedUntilMs = null)
+                s = s.copy(phase = Phase.Showing, manual = true, suppressedUntilScreenOn = false, armedUntilMs = null)
                 effects += TriggerEffect.Show
             }
         }
@@ -125,7 +133,7 @@ object TriggerEngine {
             phase = Phase.Idle,
             armedUntilMs = null,
             manual = false,
-            suppressed = s.suppressed || suppress,
+            suppressedUntilScreenOn = s.suppressedUntilScreenOn || suppress,
         )
     }
 
@@ -144,11 +152,7 @@ object TriggerEngine {
             // Зона гистерезиса: не стабильно ни для входа, ни для выхода.
             else -> s.copy(onSideSinceMs = null, offSideSinceMs = null)
         }
-        val liftedLongEnough = next.offSideSinceMs?.let { nowMs - it >= EXIT_STABLE_MS } == true
-        return next.copy(
-            lastTiltDegrees = tilt,
-            suppressed = next.suppressed && !liftedLongEnough,
-        )
+        return next.copy(lastTiltDegrees = tilt)
     }
 
     private fun evaluate(
@@ -183,7 +187,7 @@ object TriggerEngine {
     }
 
     private fun canShow(s: TriggerState, settings: StandbySettings): Boolean =
-        !s.suppressed && powerAllowed(s, settings)
+        !s.suppressedUntilScreenOn && powerAllowed(s, settings)
 
     private fun powerAllowed(s: TriggerState, settings: StandbySettings): Boolean = when {
         s.charging -> true

@@ -91,7 +91,15 @@ class StandbyService : LifecycleService() {
         )
 
         lifecycleScope.launch { for (event in events) handle(event) }
-        lifecycleScope.launch { graph.controller.userEvents.collect { events.send(it) } }
+        lifecycleScope.launch {
+            graph.controller.userEvents.collect { event ->
+                // Горит ли экран, знает только система: при нажатии кнопки питания Activity
+                // может уйти раньше, чем дойдёт SCREEN_OFF.
+                events.send(
+                    if (event is TriggerEvent.UserExit) event.copy(screenOn = powerManager.isInteractive) else event,
+                )
+            }
+        }
         lifecycleScope.launch {
             motionWakeSensor.events().collect { events.send(TriggerEvent.MotionWake) }
         }
@@ -223,8 +231,8 @@ class StandbyService : LifecycleService() {
             val cause = event::class.simpleName
             log.log("Фаза: ${before.phase} → ${after.phase} ($cause)${phaseNote(after)}")
         }
-        if (before.suppressed != after.suppressed) {
-            log.log(if (after.suppressed) "Запрет показа до снятия с подставки" else "Запрет снят")
+        if (before.suppressedUntilScreenOn != after.suppressedUntilScreenOn) {
+            log.log(if (after.suppressedUntilScreenOn) "Запрет показа до включения экрана" else "Запрет снят")
         }
         val tilt = after.lastTiltDegrees?.roundToInt()
         if (after.sensorActive && tilt != null && after.phase == Phase.Armed) {

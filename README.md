@@ -37,3 +37,5 @@ Release-сборки собирает и подписывает GitHub Actions (
 ## Лицензия
 
 [MIT](LICENSE)
+
+Шрифт экрана режима — [Inter](https://github.com/rsms/inter) (SIL Open Font License 1.1, текст лицензии — [licenses/Inter-OFL.txt](licenses/Inter-OFL.txt)).

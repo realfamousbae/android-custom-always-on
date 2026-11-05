@@ -19,8 +19,12 @@ sealed interface TriggerEvent {
     /** Сработал таймер, заказанный эффектом ScheduleTick. */
     data object Tick : TriggerEvent
 
-    /** Режим закрыт пользователем (тап, кнопка питания, Activity ушла с экрана). */
-    data object UserExit : TriggerEvent
+    /**
+     * Режим закрыт не службой (тап, «назад», Activity ушла с экрана).
+     * [screenOn] — горел ли экран в этот момент (служба подставляет `isInteractive`):
+     * false значит, что режим погасили кнопкой питания раньше, чем дошёл SCREEN_OFF.
+     */
+    data class UserExit(val screenOn: Boolean = true) : TriggerEvent
 
     /** Показать режим немедленно, без проверки условий (кнопка теста, плитка). */
     data object ManualShow : TriggerEvent
@@ -58,8 +62,11 @@ data class TriggerState(
     /** С какого момента телефон непрерывно «не на боку» с учётом гистерезиса (для выхода). */
     val offSideSinceMs: Long? = null,
     val lastTiltDegrees: Float? = null,
-    /** Пользователь закрыл режим; не показывать, пока телефон не сняли с бока. */
-    val suppressed: Boolean = false,
+    /**
+     * Режим погасили кнопкой питания: не ждать положения и не показывать, пока экран снова
+     * не включат (или не разблокируют, или не изменится зарядка).
+     */
+    val suppressedUntilScreenOn: Boolean = false,
     /** Режим показан вручную: закрывается только пользователем. */
     val manual: Boolean = false,
     // Что сейчас реально включено у службы — чтобы выдавать эффекты только при изменениях.

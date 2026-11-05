@@ -7,6 +7,9 @@ import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.realfamousbae.standby.dock.core.prefs.ScreenLayout
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -60,16 +63,35 @@ class StandbyActivity : ComponentActivity() {
         graph.diagLog.log("Режим: показан")
 
         setContent {
-            StandbySpikeScreen(onExit = { finish() })
+            val settings by graph.settings.collectAsStateWithLifecycle()
+            val widgetId = settings.widgetId?.takeIf { graph.widgetHost.info(it) != null }
+            StandbyScreen(
+                layout = ScreenLayout.resolve(settings.layout, widgetAvailable = widgetId != null),
+                widgetId = widgetId,
+                widgetHost = graph.widgetHost,
+                banners = graph.notificationBus.banners,
+                onExit = { finish() },
+            )
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        // Виджеты обновляются, только пока хост слушает.
+        graph.widgetHost.startListening()
+    }
+
+    override fun onStop() {
+        graph.widgetHost.stopListening()
+        super.onStop()
+    }
+
     override fun onDestroy() {
-        // Закрыли не по решению службы (тап, «назад», система) — сообщаем, чтобы режим
-        // не вернулся сразу после погасания экрана.
+        // Закрыли не по решению службы (тап, «назад», система) — сообщаем. Горел ли при
+        // этом экран (тап или кнопка питания), служба определит сама.
         if (!isChangingConfigurations && controller.visible.value) {
             controller.setVisible(false)
-            controller.send(TriggerEvent.UserExit)
+            controller.send(TriggerEvent.UserExit())
         }
         graph.diagLog.log("Режим: закрыт")
         super.onDestroy()

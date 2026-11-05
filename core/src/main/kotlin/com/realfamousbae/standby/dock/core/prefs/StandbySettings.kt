@@ -14,6 +14,14 @@ data class StandbySettings(
     /** Пределы автояркости окна режима (доля от максимальной, 0..1). */
     val brightnessMin: Float = 0.01f,
     val brightnessMax: Float = 0.6f,
+    /** Раскладка экрана режима. */
+    val layout: ScreenLayout = ScreenLayout.ClockOnly,
+    /** id привязанного системного виджета (AppWidgetHost); null — не выбран. */
+    val widgetId: Int? = null,
+    /** Показывать баннеры новых уведомлений поверх режима. */
+    val notificationBannersEnabled: Boolean = true,
+    /** Приложения, от которых баннеры не показываются (по умолчанию — все разрешены). */
+    val notificationBlockedPackages: Set<String> = emptySet(),
 ) {
     companion object {
         const val TILT_RANGE_MIN = 15f

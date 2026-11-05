@@ -165,7 +165,7 @@ class TriggerEngineTest {
         rig.hold(portrait, 600)
         assertEquals("сняли с подставки", rig.hides.single().reason)
         assertEquals(Phase.Idle, rig.phase)
-        assertFalse(rig.state.suppressed)
+        assertFalse(rig.state.suppressedUntilScreenOn)
     }
 
     @Test
@@ -216,69 +216,119 @@ class TriggerEngineTest {
         assertEquals(1, rig.hides.size)
     }
 
-    @Test
-    fun `вышли тапом — после погасания экрана режим не возвращается`() {
-        val rig = rigOnBattery()
-        rig.send(TriggerEvent.ScreenOff)
-        rig.hold(onSide, 1_600)
-        rig.send(TriggerEvent.UserExit)
-        assertEquals(Phase.Idle, rig.phase)
-        assertTrue(rig.state.suppressed)
-        assertTrue("UserExit не должен слать Hide обратно", rig.hides.isEmpty())
-
-        rig.send(TriggerEvent.ScreenOff) // экран блокировки погас по таймауту
-        rig.hold(onSide, 5_000)
-        assertEquals(1, rig.shows)
+    /** Показать режим на подставке (экран включается самим режимом). */
+    private fun Rig.showOnStand() {
+        send(TriggerEvent.ScreenOff)
+        hold(onSide, 1_600)
+        send(TriggerEvent.ScreenOn)
+        assertEquals(Phase.Showing, phase)
     }
 
     @Test
-    fun `после выхода тапом сняли с подставки и поставили снова — режим работает`() {
-        val rig = rigCharging()
-        rig.send(TriggerEvent.ScreenOff)
-        rig.hold(onSide, 1_600)
-        rig.send(TriggerEvent.UserExit)
-        rig.send(TriggerEvent.ScreenOff)
-        rig.hold(onSide, 3_000)
+    fun `вышли тапом и оставили — после погасания экрана режим возвращается`() {
+        val rig = rigOnBattery()
+        rig.showOnStand()
+        rig.send(TriggerEvent.UserExit(screenOn = true))
+        assertEquals(Phase.Idle, rig.phase)
+        assertFalse(rig.state.suppressedUntilScreenOn)
+        assertTrue("UserExit не должен слать Hide обратно", rig.hides.isEmpty())
+        // Пока экран горит, режим сам не всплывает.
+        rig.hold(onSide, 5_000)
         assertEquals(1, rig.shows)
 
-        rig.hold(portrait, 2_100) // сняли
-        assertFalse(rig.state.suppressed)
-        rig.hold(onSide, 1_600) // поставили обратно
+        rig.send(TriggerEvent.ScreenOff) // экран блокировки погас по таймауту
+        rig.hold(onSide, 1_600)
         assertEquals(2, rig.shows)
     }
 
     @Test
-    fun `разблокировка при показанном режиме закрывает его и снимает запрет`() {
+    fun `кнопка питания при показанном режиме — пока экран погашен, ничего не ждём`() {
+        val rig = rigCharging()
+        rig.showOnStand()
+        rig.effects.clear()
+        rig.send(TriggerEvent.ScreenOff)
+        assertEquals("погасили кнопкой питания", rig.hides.single().reason)
+        assertTrue(rig.state.suppressedUntilScreenOn)
+        // Ни датчика, ни wake lock на всю ночь.
+        assertFalse(rig.state.sensorActive)
+        assertFalse(rig.state.wakeLockHeld)
+        assertFalse(TriggerEffect.HoldWakeLock(true) in rig.effects)
+        rig.send(TriggerEvent.MotionWake)
+        assertEquals(Phase.Idle, rig.phase)
+        rig.hold(onSide, 5_000)
+        assertEquals(0, rig.shows) // эффекты очищены после первого показа
+    }
+
+    @Test
+    fun `кнопка питания, потом экран включили и не трогали — режим возвращается`() {
+        val rig = rigOnBattery()
+        rig.showOnStand()
+        rig.send(TriggerEvent.ScreenOff) // кнопка питания
+        rig.send(TriggerEvent.ScreenOn) // включили экран, но не разблокировали
+        assertFalse(rig.state.suppressedUntilScreenOn)
+        rig.hold(onSide, 5_000)
+        assertEquals(1, rig.shows)
+        rig.send(TriggerEvent.ScreenOff) // погас по таймауту
+        rig.hold(onSide, 1_600)
+        assertEquals(2, rig.shows)
+    }
+
+    @Test
+    fun `Activity ушла раньше SCREEN_OFF — то же, что кнопка питания`() {
+        fun finalState(exitFirst: Boolean): TriggerState {
+            val rig = rigCharging()
+            rig.showOnStand()
+            if (exitFirst) {
+                rig.send(TriggerEvent.UserExit(screenOn = false))
+                rig.send(TriggerEvent.ScreenOff)
+            } else {
+                rig.send(TriggerEvent.ScreenOff)
+                rig.send(TriggerEvent.UserExit(screenOn = false))
+            }
+            rig.hold(onSide, 5_000)
+            assertEquals(1, rig.shows)
+            return rig.state
+        }
+        val a = finalState(exitFirst = true)
+        val b = finalState(exitFirst = false)
+        assertEquals(a, b)
+        assertTrue(a.suppressedUntilScreenOn)
+        assertEquals(Phase.Idle, a.phase)
+    }
+
+    @Test
+    fun `разблокировка при показанном режиме закрывает его`() {
         val rig = rigOnBattery()
         rig.send(TriggerEvent.ScreenOff)
         rig.hold(onSide, 1_600)
         rig.send(TriggerEvent.UserPresent)
         assertEquals("телефон разблокирован", rig.hides.single().reason)
-        assertFalse(rig.state.suppressed)
+        assertFalse(rig.state.suppressedUntilScreenOn)
         assertFalse(rig.state.sensorActive)
     }
 
     @Test
-    fun `кнопка питания при показанном режиме — закрыть и не возвращать`() {
-        val rig = rigCharging()
+    fun `кнопка питания, потом разблокировали и снова заблокировали — ожидание взводится`() {
+        val rig = rigOnBattery()
+        rig.showOnStand()
         rig.send(TriggerEvent.ScreenOff)
-        rig.hold(onSide, 1_600)
-        rig.send(TriggerEvent.ScreenOn)
+        rig.send(TriggerEvent.UserPresent)
+        assertFalse(rig.state.suppressedUntilScreenOn)
         rig.send(TriggerEvent.ScreenOff)
-        assertEquals(1, rig.hides.size)
-        assertTrue(rig.state.suppressed)
-        rig.hold(onSide, 5_000)
-        assertEquals(1, rig.shows)
+        assertEquals(Phase.Armed, rig.phase)
     }
 
     @Test
-    fun `отключение зарядки снимает запрет`() {
-        val rig = rigCharging()
+    fun `подключение зарядки после кнопки питания снимает запрет и взводит ожидание`() {
+        val rig = rigOnBattery()
+        rig.showOnStand()
         rig.send(TriggerEvent.ScreenOff)
+        assertTrue(rig.state.suppressedUntilScreenOn)
+        rig.send(TriggerEvent.Power(charging = true, batteryPercent = 50))
+        assertFalse(rig.state.suppressedUntilScreenOn)
+        assertEquals(Phase.Armed, rig.phase)
         rig.hold(onSide, 1_600)
-        rig.send(TriggerEvent.UserExit)
-        rig.send(TriggerEvent.Power(charging = false, batteryPercent = 50))
-        assertFalse(rig.state.suppressed)
+        assertEquals(2, rig.shows)
     }
 
     @Test
@@ -299,7 +349,7 @@ class TriggerEngineTest {
         assertFalse(rig.state.sensorActive)
         rig.hold(portrait, 5_000)
         assertEquals(Phase.Showing, rig.phase)
-        rig.send(TriggerEvent.UserExit)
+        rig.send(TriggerEvent.UserExit())
         assertEquals(Phase.Idle, rig.phase)
     }
 

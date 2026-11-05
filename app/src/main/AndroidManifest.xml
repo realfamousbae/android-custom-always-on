@@ -14,6 +14,18 @@
 
     <uses-feature android:name="android.hardware.sensor.accelerometer" android:required="true" />
 
+    <!-- Видимость пакетов (target 30+): список системных виджетов и приложений для фильтра
+         баннеров уведомлений. Без этого список пустой и без названий. -->
+    <queries>
+        <intent>
+            <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
+
     <application
         android:name=".App"
         android:allowBackup="false"
@@ -55,6 +67,17 @@
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Следит за зарядкой и положением телефона, чтобы показать прикроватный режим" />
+        </service>
+
+        <!-- Баннеры уведомлений в режиме. Доступ выдаёт пользователь в настройках системы. -->
+        <service
+            android:name=".notifications.StandbyNotificationListener"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
         </service>
 
         <receiver
