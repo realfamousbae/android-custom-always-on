@@ -7,12 +7,13 @@ import androidx.compose.ui.text.font.FontWeight
 import com.realfamousbae.standby.dock.R
 
 /**
- * Шрифты экрана режима. Фирменный шрифт One UI проприетарный, поэтому — Inter (SIL OFL 1.1,
- * лицензия в `licenses/Inter-OFL.txt`): современный гротеск, близкий по пропорциям.
- * Inter Display — оптическая версия для крупного кегля, ей набраны часы.
+ * Шрифты экрана режима. Часы — Manrope Bold (SIL OFL 1.1, `licenses/Manrope-OFL.txt`;
+ * статический экземпляр wght=700 из вариативного шрифта Google Fonts). Остальной текст —
+ * Inter (SIL OFL 1.1, `licenses/Inter-OFL.txt`): фирменный шрифт One UI проприетарный,
+ * а Inter близок к нему по пропорциям.
  */
 object StandbyFonts {
-    val display = FontFamily(Font(R.font.inter_display_light, FontWeight.Light))
+    val display = FontFamily(Font(R.font.manrope_bold, FontWeight.Bold))
     val text = FontFamily(
         Font(R.font.inter_regular, FontWeight.Normal),
         Font(R.font.inter_medium, FontWeight.Medium),

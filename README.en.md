@@ -73,5 +73,6 @@ a push to `main` runs checks, a `v*` tag publishes a signed APK to Releases.
 
 [MIT](LICENSE).
 
-The clock font is [Inter](https://github.com/rsms/inter) (SIL Open Font License 1.1, see
-[licenses/Inter-OFL.txt](licenses/Inter-OFL.txt)).
+Fonts (SIL Open Font License 1.1): the clock uses [Manrope](https://github.com/googlefonts/manrope)
+([licenses/Manrope-OFL.txt](licenses/Manrope-OFL.txt)), all other text uses
+[Inter](https://github.com/rsms/inter) ([licenses/Inter-OFL.txt](licenses/Inter-OFL.txt)).

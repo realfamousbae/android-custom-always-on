@@ -74,5 +74,6 @@ push в `main` — проверка, тег `v*` — подписанный APK 
 
 [MIT](LICENSE).
 
-Шрифт экрана режима — [Inter](https://github.com/rsms/inter) (SIL Open Font License 1.1,
-текст лицензии — [licenses/Inter-OFL.txt](licenses/Inter-OFL.txt)).
+Шрифты экрана режима (SIL Open Font License 1.1): часы — [Manrope](https://github.com/googlefonts/manrope)
+([licenses/Manrope-OFL.txt](licenses/Manrope-OFL.txt)), остальной текст —
+[Inter](https://github.com/rsms/inter) ([licenses/Inter-OFL.txt](licenses/Inter-OFL.txt)).
