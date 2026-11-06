@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import com.realfamousbae.standby.dock.core.prefs.ScreenLayout
@@ -13,6 +14,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.realfamousbae.standby.dock.core.prefs.StandbySettings
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 private val Context.dataStore by preferencesDataStore(name = "standby_settings")
@@ -29,6 +31,8 @@ class SettingsRepository(context: Context) {
     val settings: Flow<StandbySettings> = store.data
         .map { p ->
             StandbySettings(
+                enabled = p[ENABLED] ?: defaults.enabled,
+                stoppedExternally = p[STOPPED_EXTERNALLY] ?: defaults.stoppedExternally,
                 maxTiltDegrees = p[MAX_TILT] ?: defaults.maxTiltDegrees,
                 requireCharging = p[REQUIRE_CHARGING] ?: defaults.requireCharging,
                 minBatteryPercentOffCharger = p[MIN_BATTERY] ?: defaults.minBatteryPercentOffCharger,
@@ -42,6 +46,18 @@ class SettingsRepository(context: Context) {
             )
         }
         .distinctUntilChanged()
+
+    /** Главный выключатель. [external] — выключено внешней остановкой, а не тумблером. */
+    suspend fun setEnabled(value: Boolean, external: Boolean = false) {
+        store.edit {
+            it[ENABLED] = value
+            it[STOPPED_EXTERNALLY] = !value && external
+        }
+    }
+
+    /** Метка времени последнего учтённого завершения процесса (ApplicationExitInfo). */
+    suspend fun lastHandledExitMs(): Long = store.data.first()[LAST_HANDLED_EXIT_MS] ?: 0L
+    suspend fun setLastHandledExitMs(value: Long) = set(LAST_HANDLED_EXIT_MS, value)
 
     suspend fun setMaxTilt(value: Float) = set(MAX_TILT, value)
     suspend fun setRequireCharging(value: Boolean) = set(REQUIRE_CHARGING, value)
@@ -67,6 +83,9 @@ class SettingsRepository(context: Context) {
     }
 
     private companion object {
+        val ENABLED = booleanPreferencesKey("enabled")
+        val STOPPED_EXTERNALLY = booleanPreferencesKey("stopped_externally")
+        val LAST_HANDLED_EXIT_MS = longPreferencesKey("last_handled_exit_ms")
         val MAX_TILT = floatPreferencesKey("max_tilt_degrees")
         val REQUIRE_CHARGING = booleanPreferencesKey("require_charging")
         val MIN_BATTERY = intPreferencesKey("min_battery_percent_off_charger")

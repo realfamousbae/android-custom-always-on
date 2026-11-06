@@ -15,6 +15,9 @@ import com.realfamousbae.standby.dock.core.notifications.LockscreenPrivacy
 import com.realfamousbae.standby.dock.core.notifications.NotificationFilter
 import com.realfamousbae.standby.dock.core.notifications.NotificationInfo
 import com.realfamousbae.standby.dock.graph
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 /**
  * Слушатель уведомлений: пока режим показан, превращает новые уведомления в баннеры.
@@ -26,14 +29,28 @@ import com.realfamousbae.standby.dock.graph
 class StandbyNotificationListener : NotificationListenerService() {
 
     private val dedupe = BannerDedupe()
+    private var enabledWatch: Job? = null
 
     override fun onListenerConnected() {
+        // StandBy выключен — отвязываемся, чтобы система не держала процесс ради слушателя.
+        // При включении RunState вызывает requestRebind.
+        enabledWatch?.cancel()
+        enabledWatch = graph.appScope.launch {
+            graph.settingsRepository.settings.first { !it.enabled }
+            graph.diagLog.log("Уведомления: StandBy выключен — слушатель отвязан")
+            runCatching { requestUnbind() }
+        }
         val privacy = when (systemAllowsPrivateNotifications(this)) {
             true -> "показывать"
             false -> "скрывать"
             null -> "не читается, скрываем"
         }
         graph.diagLog.log("Уведомления: слушатель подключён; содержимое на блокировке — $privacy")
+    }
+
+    override fun onListenerDisconnected() {
+        enabledWatch?.cancel()
+        enabledWatch = null
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {

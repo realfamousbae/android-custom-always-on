@@ -13,13 +13,14 @@ import java.util.concurrent.TimeUnit
  * гарантирован). Режим работает и без зарядки, поэтому задача периодическая без условий:
  * раз в ~15 минут (система может сдвигать) поднимает службу. Если служба жива, повторный
  * запуск безвреден. Старт FGS из фона разрешён благодаря исключению из оптимизации батареи
- * (проверено в spike, docs/PLAN.md, этап 1).
+ * (проверено в spike, docs/PLAN.md, этап 1). Планируется, только пока StandBy включён
+ * ([RunState]); при выключенном тумблере запуск всё равно пропускается.
  */
 class KeepAliveWorker(context: Context, params: WorkerParameters) :
     CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
-        ServiceStarter.start(applicationContext, reason = "worker")
+        ServiceStarter.startIfAllowed(applicationContext, reason = "worker")
         return Result.success()
     }
 
@@ -31,6 +32,11 @@ class KeepAliveWorker(context: Context, params: WorkerParameters) :
             // UPDATE: заменяет задачу из прошлых версий (с условием «на зарядке»).
             WorkManager.getInstance(context)
                 .enqueueUniquePeriodicWork(UNIQUE_NAME, ExistingPeriodicWorkPolicy.UPDATE, request)
+        }
+
+        /** StandBy выключен — фоновые подъёмы не нужны. */
+        fun cancel(context: Context) {
+            WorkManager.getInstance(context).cancelUniqueWork(UNIQUE_NAME)
         }
     }
 }

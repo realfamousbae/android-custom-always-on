@@ -7,8 +7,8 @@ import com.realfamousbae.standby.dock.diag.DiagLog
 import com.realfamousbae.standby.dock.notifications.NotificationBus
 import com.realfamousbae.standby.dock.notifications.QuietMode
 import com.realfamousbae.standby.dock.prefs.SettingsRepository
-import com.realfamousbae.standby.dock.service.KeepAliveWorker
 import com.realfamousbae.standby.dock.service.Notifications
+import com.realfamousbae.standby.dock.service.RunState
 import com.realfamousbae.standby.dock.standby.StandbyController
 import com.realfamousbae.standby.dock.widgets.StandbyWidgetHost
 import kotlinx.coroutines.CoroutineScope
@@ -28,7 +28,8 @@ class App : Application() {
         super.onCreate()
         graph = AppGraph(this)
         Notifications.createChannels(this)
-        KeepAliveWorker.schedule(this)
+        // Проверка внешней остановки и планирование KeepAliveWorker — внутри RunState.
+        graph.runState.startup(graph.appScope)
     }
 }
 
@@ -47,6 +48,7 @@ class AppGraph(app: Application) {
     val widgetHost = StandbyWidgetHost(app)
     val notificationBus = NotificationBus()
     val quietMode = QuietMode(app, diagLog)
+    val runState = RunState(app, settingsRepository, diagLog)
 
     /** Последние настройки, всегда доступные синхронно (до первой загрузки — по умолчанию). */
     val settings: StateFlow<StandbySettings> =

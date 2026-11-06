@@ -51,7 +51,8 @@ class SettingsActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        // Из видимой Activity запуск FGS разрешён всегда.
+        // Из видимой Activity запуск FGS разрешён всегда. Если StandBy выключен (тумблером или
+        // внешней остановкой), открытие приложения службу не поднимает.
         ServiceStarter.start(this, reason = "открыто приложение")
         pendingWidgetId = savedInstanceState?.getInt(KEY_PENDING, NO_ID)?.takeIf { it != NO_ID }
         if (pendingWidgetId == null) {
@@ -139,6 +140,8 @@ private fun SettingsScreen(onPickWidget: (AppWidgetProviderInfo) -> Unit) {
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text("StandBy", style = MaterialTheme.typography.headlineSmall)
+        PowerSection()
+        SectionDivider()
         LayoutSection(onPickWidget)
         SectionDivider()
         NotificationsSection()

@@ -28,6 +28,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.util.Locale
@@ -114,6 +115,13 @@ class StandbyService : LifecycleService() {
         }
         lifecycleScope.launch {
             motionWakeSensor.events().collect { events.send(TriggerEvent.MotionWake) }
+        }
+        // Главный выключатель: при «Выкл» (тумблер, плитка, внешняя остановка) служба уходит
+        // сама. Заодно покрывает перезапуск системой по START_STICKY в выключенном состоянии.
+        lifecycleScope.launch {
+            graph.settingsRepository.settings.first { !it.enabled }
+            log.log("Служба: StandBy выключен — останавливаемся")
+            stopSelf()
         }
         // Если служба поднялась при погашенном экране (загрузка, воркер) — сразу проба.
         if (!powerManager.isInteractive) events.trySend(TriggerEvent.ScreenOff)

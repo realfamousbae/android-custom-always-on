@@ -29,6 +29,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.LifecycleResumeEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.realfamousbae.standby.dock.core.trigger.TriggerEvent
 import com.realfamousbae.standby.dock.graph
 import com.realfamousbae.standby.dock.service.ServiceStarter
@@ -58,6 +59,8 @@ fun DiagnosticsSection() {
     val notifications = SystemChecks.canPostNotifications(context)
     val screensaver = SystemChecks.isScreensaverEnabled(context)
     var devOpen by rememberSaveable { mutableStateOf(false) }
+    // Тесты режима требуют работающей службы — при выключенном StandBy недоступны.
+    val enabled = context.graph.settings.collectAsStateWithLifecycle().value.enabled
 
     SectionTitle("Разрешения")
     StatusRow("Поверх других окон", overlay) {
@@ -100,18 +103,20 @@ fun DiagnosticsSection() {
             Button(
                 // Через службу: показ и закрытие режима решает только она (TriggerEngine).
                 onClick = { context.graph.controller.send(TriggerEvent.ManualShow) },
+                enabled = enabled,
                 modifier = Modifier.fillMaxWidth(),
             ) { Text("Показать режим сейчас") }
             Button(
                 onClick = {
                     ServiceStarter.start(context, "кнопка теста", StandbyService.ACTION_TEST_LAUNCH)
                 },
+                enabled = enabled,
                 modifier = Modifier.fillMaxWidth(),
             ) { Text("Показать режим через 10 с (заблокируйте экран)") }
             OutlinedButton(
                 onClick = {
                     // Явная остановка: START_STICKY не сработает, поднять службу сможет только
-                    // KeepAliveWorker или BootReceiver (spike, п. 7).
+                    // KeepAliveWorker или BootReceiver (spike, п. 7). Тумблер не меняется.
                     context.stopService(Intent(context, StandbyService::class.java))
                     context.graph.diagLog.log("Тест: служба остановлена вручную")
                     refresh++
